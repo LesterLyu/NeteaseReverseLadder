@@ -12,6 +12,7 @@ using System.Timers;
 using Titanium.Web.Proxy;
 using Titanium.Web.Proxy.EventArguments;
 using Titanium.Web.Proxy.Models;
+using Titanium.Web.Proxy.Http;
 
 namespace NeteaseReverseLadder
 {
@@ -33,7 +34,7 @@ namespace NeteaseReverseLadder
 
         private void OnTimedEvent(object source, ElapsedEventArgs e)
         {
-            lock(this)
+            lock(requests)
                 foreach (var pair in requests)
                 {
                     if ((DateTime.Now - pair.Value.time).TotalSeconds > 30)
@@ -70,23 +71,28 @@ namespace NeteaseReverseLadder
         public async Task OnRequest(object sender, SessionEventArgs e)
         {
             //Console.WriteLine("Request：" + e.WebSession.Request.Url + "Test=" + TestURL(e.WebSession.Request.Url));
-            if (e.WebSession.Request.Url.Contains("music.163.com/eapi/song/enhance") || e.WebSession.Request.Url.Contains("music.163.com/eapi/song/like") || TestURL(e.WebSession.Request.Url))
+            if (e.WebSession.Request.Url.Contains("music.163.com/eapi/song/enhance") || e.WebSession.Request.Url.Contains("music.163.com/eapi/song/like") || TestURL(e.WebSession.Request.Url, urlToProxy))
             {
                 Console.WriteLine("Request：" + e.WebSession.Request.Url);
-                var request = new RequestInfo() {
-                    body = await e.GetRequestBody(),
+                RequestInfo request = new RequestInfo()
+                {
+                    body = null,
                     head = e.WebSession.Request.RequestHeaders,
                     time = DateTime.Now
                 };
-                lock (this)
+                lock(requests)
                     requests.Add(e.WebSession.RequestId, request);
+                Console.WriteLine("add uuid: " + e.WebSession.RequestId);
+                request.body = await e.GetRequestBody();
+
+
             }
 
         }
         class RequestInfo
         {
             public byte[] body;
-            public Dictionary<string, HttpHeader> head;
+            public HeaderCollection head;
             public DateTime time;
         }
         private Dictionary<Guid, RequestInfo> requests = new Dictionary<Guid, RequestInfo>();
@@ -96,26 +102,26 @@ namespace NeteaseReverseLadder
             Console.WriteLine("Response：" + e.WebSession.Request.Url);
             //read response headers
             var responseHeaders = e.WebSession.Response.ResponseHeaders;
-            if ((e.WebSession.Request.Method == "GET" || e.WebSession.Request.Method == "POST") && e.WebSession.Response.ResponseStatusCode == "200")
+            if ((e.WebSession.Request.Method == "GET" || e.WebSession.Request.Method == "POST") && e.WebSession.Response.ResponseStatusCode == 200)
             {
                 if (e.WebSession.Response.ContentType != null && (e.WebSession.Response.ContentType.Trim().ToLower().Contains("text") ||
                     e.WebSession.Response.ContentType.Trim().ToLower().Contains("json") || e.WebSession.Response.ContentType.Trim().ToLower().Contains("javascript")) ||
-                    e.WebSession.Request.Url.Contains("music.163.com/eapi/song") || TestURL(e.WebSession.Request.Url))
+                    e.WebSession.Request.Url.Contains("music.163.com/eapi/song") || TestURL(e.WebSession.Request.Url, urlToProxy))
                 {
                     string url = e.WebSession.Request.Url;
-                    if (e.WebSession.Request.Url.Contains("music.163.com/eapi/song/enhance") || e.WebSession.Request.Url.Contains("music.163.com/eapi/song/like") || TestURL(e.WebSession.Request.Url))
+                    if (e.WebSession.Request.Url.Contains("music.163.com/eapi/song/enhance") || e.WebSession.Request.Url.Contains("music.163.com/eapi/song/like") || TestURL(e.WebSession.Request.Url, urlToProxy))
                     {
                         Console.WriteLine("从代理服务器获取：" + e.WebSession.Request.Url);
                         //new added
-                        var body = await e.GetResponseBodyAsString();
-                        Console.WriteLine("Not modified: \n" + body);
+                        //var body = await e.GetResponseBodyAsString();
+                        //Console.WriteLine("Not modified: \n" + body);
 
                         var st = new Stopwatch();
                         st.Start();
                         await e.SetResponseBody(UseProxy(e));
                         st.Stop();
                         Console.WriteLine("修改完成，用时 " + st.ElapsedMilliseconds + " ms");
-                        lock (this)
+                        lock(requests)
                             requests.Remove(e.WebSession.RequestId);
                     }
                     else if (e.WebSession.Request.Url.Contains("music.163.com/eapi/"))
@@ -135,14 +141,6 @@ namespace NeteaseReverseLadder
                         }
                     }
                    
-                    else if (e.WebSession.Request.Url.Contains("vipdown/fcgi-bin/fcg_3g_song_list_rover.fcg")) {
-                        string body = await e.GetResponseBodyAsString();
-                        body = body.Replace("\"pay_status\":0", "\"pay_status\":1");
-                        body = body.Replace("\"status\":0", "\"status\":1");
-                        await e.SetResponseBodyString(body);
-                        Console.WriteLine("修改成功：" + e.WebSession.Request.Url);
-
-                    }
                     else if (e.WebSession.Request.Url.Contains("vipmusic/fcgi-bin/fcg_vip_login.fcg"))
                     {
                         string body = await e.GetResponseBodyAsString();
@@ -150,32 +148,36 @@ namespace NeteaseReverseLadder
                         await e.SetResponseBodyString(body);
                         Console.WriteLine("修改成功：" + e.WebSession.Request.Url);
                     }
-                    else if (url.Contains("qqmusic/fcgi-bin/qm_rplstingmus.fcg") || url.Contains("musichall/fcgi-bin/fcg_action_ctrl") 
-                        || url.Contains("qqmusic/fcgi-bin/update_songinfo.fcg") || url.Contains("soso/fcgi-bin/client_search_cp")
-                        || url.Contains("node/pc/wk_v15/singer_detail.html") || url.Contains("v8/fcg-bin/fcg_v8_album_detail_cp.fcg"))
+                    else if (TestURL(url, urlToModify))
                     {
                         string body = await e.GetResponseBodyAsString();
                         body = body.Replace("msgid=\"23\"", "msgid=\"0\"");
-                        body = body.Replace("alert=\"0\"", "alert=\"2\"");
+                        //body = body.Replace("alert=\"0\"", "alert=\"2\"");
                         body = body.Replace("switch=\"1\"", "switch=\"3749695\"");
                         body = body.Replace("\"msgid\":23", "\"msgid\":0");
-                        body = body.Replace("\"alert\":0", "\"alert\":2");
+                        //body = body.Replace("\"alert\":0", "\"alert\":2");
                         body = body.Replace("\"switch\":1", "\"switch\":3749695");
                         body = body.Replace("\"msg\":23", "\"msg\":0");
+                        body = body.Replace("\"payStatus\":0", "\"payStatus\":1");
+                        body = body.Replace("\"pay_status\":0", "\"pay_status\":1");
+                        body = body.Replace("\"status\":0", "\"status\":1");
                         await e.SetResponseBodyString(body);
                         Console.WriteLine("修改成功：" + e.WebSession.Request.Url);
+                        if (url.Contains("vipdown/fcgi-bin/fcg_3g_song_list_rover.fcg")) {
+                            Console.WriteLine(body);                
+                        }
                     }
 
                     else
                     {
-                        if (TestURLBlock(e.WebSession.Request.Url))
+                        if (TestURL(e.WebSession.Request.Url, urlToBlock))
                         {
                             Console.WriteLine("Blocked：" + e.WebSession.Request.Url);
                             await e.SetResponseBodyString("");
                             return;
                         }
                         var body = await e.GetResponseBodyAsString();
-                        if (!TestURLDismiss(e.WebSession.Request.Url)) {
+                        if (!TestURL(e.WebSession.Request.Url, urlToDismiss)) {
                             //Console.WriteLine("未知链接：" + e.WebSession.Request.Url);
                             //Console.WriteLine("Body: \n" + body);
                         }
@@ -198,23 +200,24 @@ namespace NeteaseReverseLadder
                 using (var wc = new ImpatientWebClient())
                 {
                     RequestInfo request;
-                    lock (this)
-                        request = requests[e.WebSession.RequestId];
-                    requests.Remove(e.WebSession.RequestId);
+                    request = requests[e.WebSession.RequestId];
                     wc.Proxy = new WebProxy(proxy.host, proxy.port);
                     foreach (var aheader in request.head)
                     {
-                        var str = aheader.Key.ToLower();
+                        var str = aheader.Name.ToLower();
                         if (str == "host" || str == "content-length" || str == "accept" || str == "user-agent" || str == "connection")
                             continue;
-                        wc.Headers.Add(aheader.Key, aheader.Value.Value);
+                        wc.Headers.Add(aheader.Name, aheader.Value);
                     }
                     string removeHttpsUrl = e.WebSession.Request.Url.Replace("https://", "http://");
-                    ret = wc.UploadData(removeHttpsUrl, request.body);
+                    if(request.body == null)
+                        ret = wc.UploadData(removeHttpsUrl, new byte[] { });
+                    else
+                        ret = wc.UploadData(removeHttpsUrl, request.body);
                 }
                 // new added
-                string responseBody = System.Text.Encoding.UTF8.GetString(ret);
-                Console.WriteLine("Modified：\n" + e.WebSession.Request.Url + "\n" + responseBody);
+                //string responseBody = System.Text.Encoding.UTF8.GetString(ret);
+                //Console.WriteLine("Modified：\n" + e.WebSession.Request.Url + "\n" + responseBody);
             }
             catch (Exception ex)
             {
@@ -226,7 +229,11 @@ namespace NeteaseReverseLadder
 
         List<string> urlToBlock = new List<string>(new string[] { "x.jd.com"});
 
-        List<string> urlToProxy = new List<string>(new string[] { "fefefsdfgdsfwef" });
+        List<string> urlToProxy = new List<string>(new string[] { "rcmusic2/fcgi-bin/fcg_guess_youlike_pc.fcg"});
+
+        List<string> urlToModify = new List<string>(new string[] { "qqmusic/fcgi-bin/qm_rplstingmus.fcg", "qqmusic/fcgi-bin/update_songinfo.fcg",
+            "soso/fcgi-bin/client_search_cp", "node/pc/wk_v15/singer_detail.html", "v8/fcg-bin/fcg_v8_album_detail_cp.fcg", "vipdown/fcgi-bin/fcg_3g_song_list_rover.fcg",
+            "qzone/fcg-bin/fcg_ucc_getcdinfo_byids_cp.fcg", "musichall/fcgi-bin/fcg_action_ctrl"});
 
         List<string> urlToDismiss = new List<string>(new string[] { "v3/static/splash_pc.json", "qqmusic/fcgi-bin/qm_getudpinfo2.fcg", "base/fcgi-bin/fcg_unite_config.fcg",
             "fcgi-bin/a_player_stat.fcg", "fcgi-bin/fcg_access_moni.fcg", "fcgi-bin/fcg_get_advert.fcg", "3gmusic/fcgi-bin/3g_action_alter", "wk_v15/client/config/url.json",
@@ -236,35 +243,14 @@ namespace NeteaseReverseLadder
             "wkframe/client/", "fcgi-bin/qm_search_photo.fcg", "base/fcgi-bin/fcg_global_comment_h5.fcg", "qqmusic/fcgi-bin/lyric_download.fcg"});
         
 
-        private bool TestURL(string url) {
-            foreach (string next_url in urlToProxy) {
+        private bool TestURL(string url, List<string> urls) {
+            foreach (string next_url in urls) {
                 if (url.Contains(next_url))
                     return true;
             }
             return false;
         }
-
-        private bool TestURLBlock(string url)
-        {
-            foreach (string next_url in urlToBlock)
-            {
-                if (url.Contains(next_url))
-                    return true;
-            }
-            return false;
-
-        }
-
-        private bool TestURLDismiss(string url)
-        {
-            foreach (string next_url in urlToDismiss)
-            {
-                if (url.Contains(next_url))
-                    return true;
-            }
-            return false;
-
-        }
+        
 
     }
 }
