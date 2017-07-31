@@ -98,7 +98,9 @@ namespace NeteaseReverseLadder
             var responseHeaders = e.WebSession.Response.ResponseHeaders;
             if ((e.WebSession.Request.Method == "GET" || e.WebSession.Request.Method == "POST") && e.WebSession.Response.ResponseStatusCode == "200")
             {
-                if (e.WebSession.Response.ContentType != null && (e.WebSession.Response.ContentType.Trim().ToLower().Contains("text") || e.WebSession.Response.ContentType.Trim().ToLower().Contains("json")) || e.WebSession.Request.Url.Contains("music.163.com/eapi/song") || TestURL(e.WebSession.Request.Url))
+                if (e.WebSession.Response.ContentType != null && (e.WebSession.Response.ContentType.Trim().ToLower().Contains("text") ||
+                    e.WebSession.Response.ContentType.Trim().ToLower().Contains("json") || e.WebSession.Response.ContentType.Trim().ToLower().Contains("javascript")) ||
+                    e.WebSession.Request.Url.Contains("music.163.com/eapi/song") || TestURL(e.WebSession.Request.Url))
                 {
                     string url = e.WebSession.Request.Url;
                     if (e.WebSession.Request.Url.Contains("music.163.com/eapi/song/enhance") || e.WebSession.Request.Url.Contains("music.163.com/eapi/song/like") || TestURL(e.WebSession.Request.Url))
@@ -138,7 +140,7 @@ namespace NeteaseReverseLadder
                         body = body.Replace("\"pay_status\":0", "\"pay_status\":1");
                         body = body.Replace("\"status\":0", "\"status\":1");
                         await e.SetResponseBodyString(body);
-                        Console.WriteLine("修改成功：" + e.WebSession.Request.Url + "\n" + body);
+                        Console.WriteLine("修改成功：" + e.WebSession.Request.Url);
 
                     }
                     else if (e.WebSession.Request.Url.Contains("vipmusic/fcgi-bin/fcg_vip_login.fcg"))
@@ -146,9 +148,11 @@ namespace NeteaseReverseLadder
                         string body = await e.GetResponseBodyAsString();
                         body = body.Replace("\"viptype\":0", "\"viptype\":1");
                         await e.SetResponseBodyString(body);
-                        Console.WriteLine("修改成功：" + e.WebSession.Request.Url + "\n" + body);
+                        Console.WriteLine("修改成功：" + e.WebSession.Request.Url);
                     }
-                    else if (url.Contains("qqmusic/fcgi-bin/qm_rplstingmus.fcg") || url.Contains("musichall/fcgi-bin/fcg_action_ctrl") || url.Contains("qqmusic/fcgi-bin/update_songinfo.fcg"))
+                    else if (url.Contains("qqmusic/fcgi-bin/qm_rplstingmus.fcg") || url.Contains("musichall/fcgi-bin/fcg_action_ctrl") 
+                        || url.Contains("qqmusic/fcgi-bin/update_songinfo.fcg") || url.Contains("soso/fcgi-bin/client_search_cp")
+                        || url.Contains("node/pc/wk_v15/singer_detail.html") || url.Contains("v8/fcg-bin/fcg_v8_album_detail_cp.fcg"))
                     {
                         string body = await e.GetResponseBodyAsString();
                         body = body.Replace("msgid=\"23\"", "msgid=\"0\"");
@@ -157,8 +161,9 @@ namespace NeteaseReverseLadder
                         body = body.Replace("\"msgid\":23", "\"msgid\":0");
                         body = body.Replace("\"alert\":0", "\"alert\":2");
                         body = body.Replace("\"switch\":1", "\"switch\":3749695");
+                        body = body.Replace("\"msg\":23", "\"msg\":0");
                         await e.SetResponseBodyString(body);
-                        Console.WriteLine("修改成功：" + e.WebSession.Request.Url + "\n" + body);
+                        Console.WriteLine("修改成功：" + e.WebSession.Request.Url);
                     }
 
                     else
@@ -171,8 +176,8 @@ namespace NeteaseReverseLadder
                         }
                         var body = await e.GetResponseBodyAsString();
                         if (!TestURLDismiss(e.WebSession.Request.Url)) {
-                            Console.WriteLine("未知链接：" + e.WebSession.Request.Url);
-                            Console.WriteLine("Body: \n" + body);
+                            //Console.WriteLine("未知链接：" + e.WebSession.Request.Url);
+                            //Console.WriteLine("Body: \n" + body);
                         }
                         await e.SetResponseBody(await e.GetResponseBody());
                     }
@@ -221,7 +226,7 @@ namespace NeteaseReverseLadder
 
         List<string> urlToBlock = new List<string>(new string[] { "x.jd.com"});
 
-        List<string> urlToProxy = new List<string>(new string[] { "fefefwef" });
+        List<string> urlToProxy = new List<string>(new string[] { "fefefsdfgdsfwef" });
 
         List<string> urlToDismiss = new List<string>(new string[] { "v3/static/splash_pc.json", "qqmusic/fcgi-bin/qm_getudpinfo2.fcg", "base/fcgi-bin/fcg_unite_config.fcg",
             "fcgi-bin/a_player_stat.fcg", "fcgi-bin/fcg_access_moni.fcg", "fcgi-bin/fcg_get_advert.fcg", "3gmusic/fcgi-bin/3g_action_alter", "wk_v15/client/config/url.json",
