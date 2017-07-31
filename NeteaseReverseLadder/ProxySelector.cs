@@ -40,13 +40,29 @@ namespace NeteaseReverseLadder
                     try
                     {
                         if(newProxies.Count <= 15)
-                        newProxies.Add(new Proxy() { host = tds[0].Groups[1].Value, port = int.Parse(tds[1].Groups[1].Value), latency = int.MaxValue });
+                            newProxies.Add(new Proxy() {
+                                host = tds[0].Groups[1].Value,
+                                port = int.Parse(tds[1].Groups[1].Value),
+                                latency = int.MaxValue
+                            });
                     }
                     catch (Exception) { }
                 }
             }
             lock (this)
             {
+                newProxies.Add(new Proxy()
+                {
+                    host = "211.143.155.172",
+                    port = 80,
+                    latency = int.MaxValue
+                });
+                newProxies.Add(new Proxy()
+                {
+                    host = "175.10.195.216",
+                    port = 80,
+                    latency = int.MaxValue
+                });
                 Proxies = newProxies;
             }
         }
