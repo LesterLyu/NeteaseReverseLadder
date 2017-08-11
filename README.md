@@ -2,6 +2,8 @@
 Play your favorite songs in Netease Cloud Music that are banned outside Mainland China. 
 解除网易云音乐海外播放限制。
 Test ip from http://cn-proxy.com/
+# 下载
+https://github.com/LesterLyu/NeteaseReverseLadder/releases
 # Note
 这个网址(http://cn-proxy.com/) 不是很稳定，我以后会多从几个网站找ip。
 # 如何使用：
