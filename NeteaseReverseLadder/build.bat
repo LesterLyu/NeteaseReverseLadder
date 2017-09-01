@@ -1,0 +1,1 @@
+ILMerge /target:exe /targetplatform:"v4,C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.5" /out:unlock.exe /ndebug bin/Release/NeteaseReverseLadder.exe bin/Release/BouncyCastle.Crypto.dll bin/Release/StreamExtended.dll bin/Release/Titanium.Web.Proxy.dll bin/Release/Pathfinding.Ionic.Zip.dll
