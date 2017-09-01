@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Net;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -16,13 +17,18 @@ namespace NeteaseReverseLadder
         public ProxySelector proxySelector;
         private bool DEBUG = true;
 
+        // for netease
+        private static string[] proxiedAddresses = { "music.163.com/eapi/v1/playlist/manipulate/tracks", "music.163.com/eapi/song/enhance", "music.163.com/eapi/song/like" };
+        private static string[] skipRequestHeaders = { "host", "content-length", "accept", "user-agent", "connection", "accept-encoding" };
+
+        // for qqmusic
         List<string> urlToBlock = new List<string>(new string[] { "x.jd.com" });
 
         List<string> urlToProxy = new List<string>(new string[] { "rcmusic2/fcgi-bin/fcg_guess_youlike_pc.fcg" });
 
         List<string> urlToModify = new List<string>(new string[] { "qqmusic/fcgi-bin/qm_rplstingmus.fcg", "qqmusic/fcgi-bin/update_songinfo.fcg",
             "soso/fcgi-bin/client_search_cp", "node/pc/wk_v15/singer_detail.html", "v8/fcg-bin/fcg_v8_album_detail_cp.fcg", "vipdown/fcgi-bin/fcg_3g_song_list_rover.fcg",
-            "qzone/fcg-bin/fcg_ucc_getcdinfo_byids_cp.fcg", "musichall/fcgi-bin/fcg_action_ctrl"});
+            "qzone/fcg-bin/fcg_ucc_getcdinfo_byids_cp.fcg", "cmd=getsonginfo"});
 
         public NeteaseProxy(ProxySelector proxySelector)
         {
@@ -54,7 +60,12 @@ namespace NeteaseReverseLadder
 
         public async Task OnRequest(object sender, SessionEventArgs e)
         {
-            if (e.WebSession.Request.Url.Contains("music.163.com/eapi/song/enhance") || e.WebSession.Request.Url.Contains("music.163.com/eapi/song/like"))
+            if (DEBUG)
+            {
+                string body = await e.GetRequestBodyAsString();
+                System.IO.File.AppendAllText(@".\requests.txt", "\r\n-------------\r\n" + e.WebSession.Request.Url + "\r\n-------------\r\n" + body + "\r\n-----end-body-------\r\n");
+            }
+            if (proxiedAddresses.Any(str => e.WebSession.Request.Url.Contains(str)))
             {
                 Console.WriteLine("从代理服务器获取：" + e.WebSession.Request.Url);
                 var proxy = proxySelector.GetTop();
@@ -69,13 +80,19 @@ namespace NeteaseReverseLadder
                         foreach (var aheader in e.WebSession.Request.RequestHeaders)
                         {
                             var str = aheader.Name.ToLower();
-                            if (str == "host" || str == "content-length" || str == "accept" || str == "user-agent" || str == "connection") continue;
+                            if (skipRequestHeaders.Contains(str)) continue;
                             wc.Headers.Add(aheader.Name, aheader.Value);
                         }
-                        ret = wc.UploadData(e.WebSession.Request.Url.Replace("https://", "http://"), await e.GetRequestBody());
+                        var body = wc.UploadData(e.WebSession.Request.Url, await e.GetRequestBody());
+                      
+                        var headers = new Dictionary<string, HttpHeader>();
+                        foreach (var key in wc.ResponseHeaders.AllKeys)
+                        {
+                            headers.Add(key, new HttpHeader(key, wc.ResponseHeaders[key]));
+                        }
+                        await e.Ok(body, headers);
                     }
                     st.Stop();
-                    await e.Ok(ret);
                     Console.WriteLine("修改完成，用时 " + st.ElapsedMilliseconds + " ms");
                 }
                 catch (Exception ex) { Console.WriteLine(ex); }
@@ -88,6 +105,12 @@ namespace NeteaseReverseLadder
             if ((contentType.Contains("text") || contentType.Contains("json") || contentType.Contains("javascript")))
             {
                 string url = e.WebSession.Request.Url;
+                if (DEBUG)
+                {
+                    System.IO.File.AppendAllText(@".\url_history.txt", url + "\r\n");
+                    var body = await e.GetResponseBodyAsString();
+                    System.IO.File.AppendAllText(@".\url_history_with_data_recived.txt", "-------------" + url + "\r\n-------------" + body + "\r\n-------end-body------");
+                }
                 // Netease Music
                 if (url.Contains("music.163.com/eapi/"))
                 {
@@ -109,23 +132,28 @@ namespace NeteaseReverseLadder
                 else if (TestURL(url, urlToModify))
                 {
                     string body = await e.GetResponseBodyAsString();
-                    body = body.Replace("msgid=\"23\"", "msgid=\"0\""); // message dialog id that will prompt if you click "play"
-                    //body = body.Replace("alert=\"0\"", "alert=\"2\"");
-                    body = body.Replace("switch=\"1\"", "switch=\"3749695\""); // this is some random number
+                    body = Regex.Replace(body, "\"msgid\":\\d+", "\"msgid\":0");
+                    //body = body.Replace("msgid=\"23\"", "msgid=\"0\""); // message dialog id that will prompt if you click "play"
+                    //body = body.Replace("alert=\"0\"", "alert=\"11\"");
+                    body = body.Replace("switch=\"1\"", "switch=\"636675\""); // this is some random number
                     body = body.Replace("\"msgid\":23", "\"msgid\":0");
-                    //body = body.Replace("\"alert\":0", "\"alert\":2");
-                    body = body.Replace("\"switch\":1", "\"switch\":3749695");
+                    //body = body.Replace("\"alert\":0", "\"alert\":11");
+                    body = body.Replace("\"switch\":1", "\"switch\":636675");
                     body = body.Replace("\"msg\":23", "\"msg\":0");
                     body = body.Replace("\"payStatus\":0", "\"payStatus\":1");
                     body = body.Replace("\"pay_status\":0", "\"pay_status\":1");
                     body = body.Replace("\"status\":0", "\"status\":1");
                     await e.SetResponseBodyString(body);
                     Console.WriteLine("修改成功：" + e.WebSession.Request.Url);
-                    if(DEBUG)
+                    if (DEBUG)
+                    {
+                        System.IO.File.AppendAllText(@".\modified.txt", "\r\n-------------\r\n" + url + "\r\n-------------\r\n" + body + "\r\n-----end-body-------\r\n");
                         if (url.Contains("vipdown/fcgi-bin/fcg_3g_song_list_rover.fcg"))
                         {
+                            System.IO.File.WriteAllText(@".\fcg_3g_song_list_rover.fcg", body);
                             Console.WriteLine(body);
                         }
+                    }
                 }
 
             }
