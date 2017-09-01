@@ -28,7 +28,7 @@ namespace NeteaseReverseLadder
 
         List<string> urlToModify = new List<string>(new string[] { "qqmusic/fcgi-bin/qm_rplstingmus.fcg", "qqmusic/fcgi-bin/update_songinfo.fcg",
             "soso/fcgi-bin/client_search_cp", "node/pc/wk_v15/singer_detail.html", "v8/fcg-bin/fcg_v8_album_detail_cp.fcg", "vipdown/fcgi-bin/fcg_3g_song_list_rover.fcg",
-            "qzone/fcg-bin/fcg_ucc_getcdinfo_byids_cp.fcg", "cmd=getsonginfo"});
+            "qzone/fcg-bin/fcg_ucc_getcdinfo_byids_cp.fcg", "cmd=getsonginfo", "fcg_uniform_playlst_read.fcg"});
 
         public NeteaseProxy(ProxySelector proxySelector)
         {
@@ -73,14 +73,14 @@ namespace NeteaseReverseLadder
                 st.Start();
                 try
                 {
-                    byte[] ret = null;
                     using (var wc = new ImpatientWebClient())
                     {
                         wc.Proxy = new WebProxy(proxy.host, proxy.port);
                         foreach (var aheader in e.WebSession.Request.RequestHeaders)
                         {
                             var str = aheader.Name.ToLower();
-                            if (skipRequestHeaders.Contains(str)) continue;
+                            if (skipRequestHeaders.Contains(str))
+                                continue;
                             wc.Headers.Add(aheader.Name, aheader.Value);
                         }
                         var body = wc.UploadData(e.WebSession.Request.Url, await e.GetRequestBody());
@@ -131,15 +131,21 @@ namespace NeteaseReverseLadder
                 // QQ Music
                 else if (TestURL(url, urlToModify))
                 {
+                    Console.WriteLine("尝试修改");
                     string body = await e.GetResponseBodyAsString();
-                    body = Regex.Replace(body, "\"msgid\":\\d+", "\"msgid\":0");
-                    //body = body.Replace("msgid=\"23\"", "msgid=\"0\""); // message dialog id that will prompt if you click "play"
+                    //message dialog id that will prompt if you click "play"
+                    body = Regex.Replace(body, "\"msgid\":[ ]*\\d+", "\"msgid\":0");
+                    body = Regex.Replace(body, "\"msg\":[ ]*\\d+", "\"msg\":0");
+                    body = Regex.Replace(body, "msgid=\"[ ]*\\d+\"", "msgid=\"0\"");
+
+                    // seems useless
                     //body = body.Replace("alert=\"0\"", "alert=\"11\"");
-                    body = body.Replace("switch=\"1\"", "switch=\"636675\""); // this is some random number
-                    body = body.Replace("\"msgid\":23", "\"msgid\":0");
                     //body = body.Replace("\"alert\":0", "\"alert\":11");
-                    body = body.Replace("\"switch\":1", "\"switch\":636675");
-                    body = body.Replace("\"msg\":23", "\"msg\":0");
+
+                    // this is some random number
+                    body = body.Replace("switch=\"1\"", "switch=\"3749695\"");
+                    body = body.Replace("\"switch\":1", "\"switch\":3749695");
+
                     body = body.Replace("\"payStatus\":0", "\"payStatus\":1");
                     body = body.Replace("\"pay_status\":0", "\"pay_status\":1");
                     body = body.Replace("\"status\":0", "\"status\":1");
@@ -154,6 +160,11 @@ namespace NeteaseReverseLadder
                             Console.WriteLine(body);
                         }
                     }
+                }
+                else
+                {
+                    if (url.Contains("lyric_download"))
+                        Console.WriteLine("lyric_download");
                 }
 
             }
