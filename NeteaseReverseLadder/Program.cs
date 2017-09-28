@@ -26,16 +26,15 @@ namespace NeteaseReverseLadder
 
             start:
             var ps = new ProxySelector();
-            if (!UpdateProxySelector(ps))
-            {
-                Console.WriteLine("获取代理列表失败");
-                Console.ReadLine();
-                return;
-            }
             var proxy = new NeteaseProxy(ps);
             proxy.Start();
             Console.WriteLine("请设置网易云音乐代理为127.0.0.1，端口15213");
             Console.WriteLine("如果播放失败，按回车切换到下一个代理服务器");
+            if (!UpdateProxySelector(ps))
+            {
+                Console.WriteLine("获取代理列表失败");
+                Console.ReadLine();
+            }
             while (true)
             {
                 var aproxy = ps.GetTop();

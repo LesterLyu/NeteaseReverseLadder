@@ -15,7 +15,7 @@ namespace NeteaseReverseLadder
     {
         private ProxyServer proxyServer;
         public ProxySelector proxySelector;
-        private bool DEBUG = false;
+        private bool DEBUG = true;
 
         // for netease
         private static string[] proxiedAddresses = { "music.163.com/eapi/v1/playlist/manipulate/tracks", "music.163.com/eapi/song/enhance", "music.163.com/eapi/song/like" };
@@ -46,8 +46,8 @@ namespace NeteaseReverseLadder
             proxyServer.AddEndPoint(new ExplicitProxyEndPoint(IPAddress.Any, 15213, true));
             proxyServer.Start();
 
-            foreach (var endPoint in proxyServer.ProxyEndPoints)
-                Console.WriteLine("在 IP {0} 和端口 {1} 上开启代理服务器", endPoint.IpAddress, endPoint.Port);
+            //foreach (var endPoint in proxyServer.ProxyEndPoints)
+            //    Console.WriteLine("在 IP {0} 和端口 {1} 上开启代理服务器", endPoint.IpAddress, endPoint.Port);
         }
 
         public void Stop()
@@ -75,7 +75,16 @@ namespace NeteaseReverseLadder
             if (proxiedAddresses.Any(str => url.Contains(str))) // || TestURL(url, urlToModify)
             {
                 Console.WriteLine("从代理服务器获取：" + e.WebSession.Request.Url);
+                if (proxySelector.Proxies.Count == 0)
+                {
+                    Console.WriteLine("无代理服务器可用");
+                    return;
+                }
                 var proxy = proxySelector.GetTop();
+                if (proxy == null) {
+                    Console.WriteLine("无代理服务器可用");
+                    return;
+                }
                 var st = new Stopwatch();
                 st.Start();
                 try

@@ -24,13 +24,23 @@ namespace NeteaseReverseLadder
                 else return String.Format("{0}:{1} [x]", host, port, latency);
             }
         }
-        public List<Proxy> Proxies;
+        public List<Proxy> Proxies = new List<Proxy>();
         public void UpdateList()
         {
             var newProxies = new List<Proxy>();
             var ret = "";
             using (var wc = new ImpatientWebClient())
-                ret = wc.DownloadString("http://cn-proxy.com/");
+            {
+                try
+                {
+                    ret = wc.DownloadString("http://cn-proxy.com/");
+                }
+                catch (Exception) {
+                    return;
+                }
+                
+            }
+                
             var tables = Regex.Matches(ret, "<table class=\"sortable\">.+?<tbody>(.*?)<\\/tbody>", RegexOptions.Singleline);
             var first = true;
             foreach (Match mat in tables)
